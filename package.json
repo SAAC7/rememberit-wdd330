@@ -4,7 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "deploy": "gh-pages -d dist"
   },
   "repository": {
     "type": "git",
@@ -21,7 +24,7 @@
   "dependencies": {
     "vite": "^8.0.3"
   },
-  "scripts": {  
-  "dev": "vite"
+  "devDependencies": {
+    "gh-pages": "^6.3.0"
   }
 }
