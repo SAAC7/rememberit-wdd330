@@ -10,9 +10,11 @@ function init() {
 
 // navegación a detalle
 document.addEventListener("click", (event) => {
+  const base = import.meta.env.BASE_URL;
+
   const card = event.target.closest(".movie-card");
   if (card) {
     const id = card.dataset.id;
-    window.location.href = `detail.html?id=${id}`;
+    window.location.href = `${base}detail.html?id=${id}`;
   }
 });
