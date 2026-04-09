@@ -66,3 +66,25 @@ export async function loadHeaderFooter() {
     });
     renderWithTemplate(footerTemplate, footerElement);
 }
+
+export function alertMessage(message, duration = 2500) {
+  const alert = document.createElement("div");
+  alert.classList.add("toast");
+  alert.textContent = message;
+
+  document.body.appendChild(alert);
+
+  // animación entrada
+  setTimeout(() => {
+    alert.classList.add("show");
+  }, 10);
+
+  // remover automáticamente
+  setTimeout(() => {
+    alert.classList.remove("show");
+
+    setTimeout(() => {
+      alert.remove();
+    }, 300);
+  }, duration);
+}
