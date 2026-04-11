@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="./css/style.css" />
+  <title>My Watchlist - RememberIt</title>
+</head>
+<body>
+  <header id="main-header"></header>
+
+  <main id="watchlist-main">
+    <section class="watchlist-section">
+      <h1>My Watchlist</h1>
+      
+      <div id="watchlist-tabs" style="display: flex; gap: 1rem; padding: 1rem; justify-content: center; border-bottom: 2px solid #333;">
+        <button id="tab-watchlist-movies" class="tab-btn active" style="background: #e50914; color: white; padding: 0.5rem 1rem; border: none; border-radius: 5px; cursor: pointer;">Movies</button>
+        <button id="tab-watchlist-series" class="tab-btn" style="background: #333; color: white; padding: 0.5rem 1rem; border: none; border-radius: 5px; cursor: pointer;">Series</button>
+      </div>
+
+      <div id="watchlist-content"></div>
+    </section>
+  </main>
+
+  <footer id="main-footer"></footer>
+
+  <script type="module" src="./js/watchlist-page.js"></script>
+</body>
+</html>

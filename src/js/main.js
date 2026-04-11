@@ -15,6 +15,7 @@ document.addEventListener("click", (event) => {
   const card = event.target.closest(".movie-card");
   if (card) {
     const id = card.dataset.id;
-    window.location.href = `${base}detail.html?id=${id}`;
+    const type = card.dataset.type || "movie";
+    window.location.href = `${base}detail.html?id=${id}&type=${type}`;
   }
 });

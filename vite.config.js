@@ -11,6 +11,7 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'src/index.html'),
         detail: resolve(__dirname, 'src/detail.html'),
+        watchlist: resolve(__dirname, 'src/watchlist.html'),
       },
     },
   },
