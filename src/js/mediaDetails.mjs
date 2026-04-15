@@ -1,6 +1,6 @@
-import { getMovieById, getTVById } from "./api.js";
+import { getMovieById, getTVById, getTVSeasonDetails } from "./api.js";
 import { getParam, alertMessage } from "./utils.mjs";
-import { addToWatchlist, removeFromWatchlist, isInWatchlist, updateSeriesStatus } from "./watchlist.js";
+import { addToWatchlist, removeFromWatchlist, isInWatchlist, updateSeriesStatus, getEpisodeStatusMap, isEpisodeWatched, toggleEpisodeWatched } from "./watchlist.js";
 
 export async function initMovieDetails() {
   const id = getParam("id");
@@ -91,7 +91,6 @@ function renderTVDetails(tv) {
   const container = document.querySelector("#movie-detail");
   const inList = isInWatchlist(tv.id, "tv");
   const genres = tv.genres.map(g => g.name).join(", ");
-  const networks = tv.networks.map(n => n.name).join(", ");
   const languages = tv.languages.join(", ");
 
   container.innerHTML = `
@@ -111,16 +110,19 @@ function renderTVDetails(tv) {
         <p><strong>Status:</strong> ${tv.status}</p>
         ${tv.homepage ? `<a href="${tv.homepage}" target="_blank" class="btn">Official Site</a>` : ""}
         <button id="watchlist-btn" class="btn"></button>
-        ${inList ? `
-        <div style="margin-top:1rem;">
-          <label style="display:block;margin-bottom:0.5rem;">Status:</label>
-          <select id="tv-status" style="padding:0.5rem;background:#222;color:white;border:1px solid #444;border-radius:4px;cursor:pointer;">
-            <option value="to_watch">To Watch</option>
-            <option value="watching">Watching</option>
-            <option value="watched">Watched</option>
-          </select>
-        </div>` : ''}
       </div>
+    </section>
+
+    <section class="tv-season-section">
+      <h2>Seasons</h2>
+      <div id="season-buttons" class="season-buttons">
+        ${tv.seasons.map(season => `
+          <button class="season-btn" data-season="${season.season_number}">
+            ${season.name || `Season ${season.season_number}`} (${season.episode_count})
+          </button>
+        `).join("")}
+      </div>
+      <div id="season-details" class="season-details"></div>
     </section>
   `;
 
@@ -128,7 +130,8 @@ function renderTVDetails(tv) {
   updateButton(btn, tv.id, "tv");
 
   btn.addEventListener("click", () => {
-    if (inList) {
+    const currentlyInList = isInWatchlist(tv.id, "tv");
+    if (currentlyInList) {
       removeFromWatchlist(tv.id, "tv");
       alertMessage("Removed from Watchlist");
     } else {
@@ -140,17 +143,126 @@ function renderTVDetails(tv) {
     updateButton(btn, tv.id, "tv");
   });
 
-  if (inList) {
-    const list = JSON.parse(localStorage.getItem("media-watchlist")) || [];
-    const item = list.find(i => i.id === tv.id && i.type === "tv");
-    const select = document.getElementById("tv-status");
-    if (select && item?.status) select.value = item.status;
-    select?.addEventListener("change", (e) => {
-      updateSeriesStatus(tv.id, e.target.value);
-      alertMessage(`Status: ${e.target.value.replace("_", " ")}`);
+  setupSeasonButtons(tv, btn, tv);
+}
+
+function setupSeasonButtons(tv, watchlistBtn) {
+  const buttons = document.querySelectorAll(".season-btn");
+  if (!buttons.length) return;
+
+  buttons.forEach(button => {
+    button.addEventListener("click", async () => {
+      buttons.forEach(btn => btn.classList.remove("active"));
+      button.classList.add("active");
+      await loadSeasonEpisodes(tv.id, Number(button.dataset.season), tv, watchlistBtn);
     });
+  });
+
+  const firstButton = buttons[0];
+  if (firstButton) {
+    firstButton.classList.add("active");
+    loadSeasonEpisodes(tv.id, Number(firstButton.dataset.season), tv, watchlistBtn);
   }
 }
+
+async function loadSeasonEpisodes(tvId, seasonNumber, tv, watchlistBtn) {
+  const detailsContainer = document.getElementById("season-details");
+  if (!detailsContainer) return;
+
+  detailsContainer.innerHTML = `<p class="loading-text">Loading episodes...</p>`;
+
+  try {
+    const season = await getTVSeasonDetails(tvId, seasonNumber);
+    detailsContainer.innerHTML = `
+      <div class="season-header">
+        <h3>${season.name || `Season ${season.season_number}`}</h3>
+        <p>${season.overview || ""}</p>
+      </div>
+      <div class="episode-list">
+        ${season.episodes.map(episode => {
+          const watched = isEpisodeWatched(tvId, season.season_number, episode.episode_number);
+          return `
+            <article class="episode-item">
+              <div class="episode-meta">
+                <strong>S${String(season.season_number).padStart(2, "0")}E${String(episode.episode_number).padStart(2, "0")} - ${episode.name}</strong>
+                <p>${episode.air_date || "TBA"}</p>
+                ${episode.overview ? `<p class="episode-overview">${episode.overview}</p>` : ""}
+              </div>
+              <div class="episode-actions">
+                <span class="episode-status ${watched ? "seen" : "unseen"}">${watched ? "Watched" : "Not watched"}</span>
+                <button class="episode-watch-btn ${watched ? "watched" : ""}" data-season="${season.season_number}" data-episode="${episode.episode_number}">
+                  ${watched ? "Mark unwatched" : "Mark watched"}
+                </button>
+              </div>
+            </article>
+          `;
+        }).join("")}
+      </div>
+    `;
+
+    attachEpisodeWatchListeners(tv, watchlistBtn);
+  } catch (error) {
+    console.error(error);
+    detailsContainer.innerHTML = `<p class="error-text">Unable to load season episodes.</p>`;
+  }
+}
+
+function getWatchedEpisodeCount(tvId) {
+  const statusMap = getEpisodeStatusMap();
+  const showStatus = statusMap[tvId] || {};
+  return Object.values(showStatus).reduce((count, seasonMap) => count + Object.keys(seasonMap).length, 0);
+}
+
+function getSeriesStatusFromEpisodes(tvId, totalEpisodes) {
+  const watchedCount = getWatchedEpisodeCount(tvId);
+  if (watchedCount === 0) return "to_watch";
+  if (totalEpisodes > 0 && watchedCount >= totalEpisodes) return "watched";
+  return "watching";
+}
+
+function updateSeriesStatusWithEpisodeState(tv, watchlistBtn) {
+  const status = getSeriesStatusFromEpisodes(tv.id, tv.number_of_episodes || 0);
+  if (isInWatchlist(tv.id, "tv")) {
+    updateSeriesStatus(tv.id, status);
+  } else {
+    addToWatchlist({ id: tv.id, title: tv.name, poster_path: tv.poster_path, type: "tv", status });
+  }
+  if (watchlistBtn) {
+    updateButton(watchlistBtn, tv.id, "tv");
+  }
+  return status;
+}
+
+function attachEpisodeWatchListeners(tv, watchlistBtn) {
+  document.querySelectorAll(".episode-watch-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const seasonNumber = Number(btn.dataset.season);
+      const episodeNumber = Number(btn.dataset.episode);
+      const watched = toggleEpisodeWatched(tv.id, seasonNumber, episodeNumber);
+
+      const episodeItem = btn.closest(".episode-item");
+      const statusBadge = episodeItem.querySelector(".episode-status");
+      const watchedLabel = watched ? "Mark unwatched" : "Mark watched";
+
+      btn.textContent = watchedLabel;
+      btn.classList.toggle("watched", watched);
+      if (statusBadge) {
+        statusBadge.textContent = watched ? "Watched" : "Not watched";
+        statusBadge.classList.toggle("seen", watched);
+        statusBadge.classList.toggle("unseen", !watched);
+      }
+
+      const currentStatus = updateSeriesStatusWithEpisodeState(tv, watchlistBtn);
+      alertMessage(watched ? "Episode marked watched" : "Episode marked unwatched");
+      if (currentStatus === "watching") {
+        alertMessage("Series status: Watching");
+      } else if (currentStatus === "watched") {
+        alertMessage("Series status: Watched");
+      }
+    });
+  });
+}
+
 
 function updateButton(btn, id, type) {
   if (isInWatchlist(id, type)) {

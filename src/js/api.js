@@ -59,6 +59,18 @@ export async function getTVById(id) {
   return await res.json();
 }
 
+export async function getTVSeasonDetails(tvId, seasonNumber) {
+  const res = await fetch(
+    `${BASE_URL}/tv/${tvId}/season/${seasonNumber}?api_key=${API_KEY}&language=en-US`
+  );
+
+  if (!res.ok) {
+    throw new Error("Error fetching TV season details");
+  }
+
+  return await res.json();
+}
+
 // Búsqueda multi (películas y series)
 export async function searchMulti(query, page = 1) {
   const res = await fetch(

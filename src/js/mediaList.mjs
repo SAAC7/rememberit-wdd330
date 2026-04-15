@@ -3,20 +3,34 @@ import { getPopularMovies, getPopularSeries, searchMulti } from "./api.js";
 let currentPageMovies = 1, currentPageSeries = 1;
 let totalPagesMovies = 1, totalPagesSeries = 1;
 let currentQuery = null;
+let currentMode = "movies";
 
 export async function initMovieList() {
   renderTabs();
   setupSearch();
-  await loadMovies(1);
+  const urlState = getUrlState();
+  const page = Number(urlState.page) || 1;
+
+  if (urlState.q) {
+    document.querySelector("#search-input").value = urlState.q;
+    await search(urlState.q, page);
+  } else if (urlState.mode === "series") {
+    await loadSeries(page);
+  } else {
+    await loadMovies(page);
+  }
 }
 
 export async function search(query, page = 1) {
   currentQuery = query.trim();
   if (!currentQuery) {
     const type = getSessionType();
-    type === "movies" ? loadMovies(1) : loadSeries(1);
+    if (type === "movies") await loadMovies(1);
+    else await loadSeries(1);
     return;
   }
+  currentMode = "search";
+  setUrlState({ q: currentQuery, page, mode: currentMode });
   const data = await searchMulti(currentQuery, page);
   renderMedia(data.results, data.results[0]?.media_type || "movie");
   renderPagination("search", data.currentPage, data.totalPages);
@@ -87,8 +101,37 @@ function updateSessionType(type) {
   sessionStorage.setItem("mediaType", type);
 }
 
+function getUrlState() {
+  const params = new URLSearchParams(window.location.search);
+  return {
+    q: params.get("q") || "",
+    page: params.get("page") || "1",
+    mode: params.get("mode") || "movies"
+  };
+}
+
+function setUrlState({ q = "", page = 1, mode = "movies" }) {
+  const params = new URLSearchParams();
+  if (q) params.set("q", q);
+  if (page) params.set("page", page);
+  if (mode) params.set("mode", mode);
+  const newUrl = `${window.location.pathname}?${params.toString()}`;
+  history.replaceState(null, "", newUrl);
+}
+
+function setActiveTab(type) {
+  const buttons = document.querySelectorAll(".tab-btn");
+  buttons.forEach(btn => {
+    btn.style.background = "#333";
+  });
+  const active = document.querySelector(type === "series" ? "#tab-series" : "#tab-movies");
+  if (active) active.style.background = "#e50914";
+}
+
 async function loadMovies(page) {
+  currentMode = "movies";
   updateSessionType("movies");
+  setUrlState({ page, mode: currentMode });
   const data = await getPopularMovies(page);
   const { results, totalPages: tp, currentPage: cp } = data;
   
@@ -97,10 +140,13 @@ async function loadMovies(page) {
   
   renderMedia(results, "movie");
   renderPagination("movies", cp, tp);
+  setActiveTab("movies");
 }
 
 async function loadSeries(page) {
+  currentMode = "series";
   updateSessionType("series");
+  setUrlState({ page, mode: currentMode });
   const data = await getPopularSeries(page);
   const { results, totalPages: tp, currentPage: cp } = data;
   
@@ -109,17 +155,21 @@ async function loadSeries(page) {
   
   renderMedia(results, "tv");
   renderPagination("series", cp, tp);
+  setActiveTab("series");
 }
 
 function renderMedia(items, type) {
   const container = document.querySelector("#movie-list");
+  console.log("Rendering media:", items);
   container.innerHTML = items.map(item => {
     const itemType = item.media_type || type;
     const title = itemType === "tv" ? item.name : item.title;
     const postPath = item.poster_path;
+    const badgeText = itemType === "tv" ? "TV Show" : "Movie";
     return `
       <div class="movie-card" data-id="${item.id}" data-type="${itemType}">
         <img src="https://image.tmdb.org/t/p/w300${postPath}" alt="${title}" />
+        <span class="media-type-badge ${itemType}">${badgeText}</span>
         <h3>${title}</h3>
       </div>
     `;
@@ -137,13 +187,25 @@ function renderPagination(type, currentPage, totalPages) {
 
   document.querySelector("#prev-page").addEventListener("click", () => {
     if (currentPage > 1) {
-      type === "movies" ? loadMovies(currentPage - 1) : loadSeries(currentPage - 1);
+      if (type === "search") {
+        search(currentQuery, currentPage - 1);
+      } else if (type === "movies") {
+        loadMovies(currentPage - 1);
+      } else {
+        loadSeries(currentPage - 1);
+      }
     }
   });
 
   document.querySelector("#next-page").addEventListener("click", () => {
     if (currentPage < totalPages) {
-      type === "movies" ? loadMovies(currentPage + 1) : loadSeries(currentPage + 1);
+      if (type === "search") {
+        search(currentQuery, currentPage + 1);
+      } else if (type === "movies") {
+        loadMovies(currentPage + 1);
+      } else {
+        loadSeries(currentPage + 1);
+      }
     }
   });
 }

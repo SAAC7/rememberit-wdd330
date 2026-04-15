@@ -26,8 +26,8 @@ function setupTabs() {
 }
 
 function updateActiveTab(activeBtn, inactiveBtn) {
-  activeBtn.style.background = "#e50914";
-  inactiveBtn.style.background = "#333";
+  activeBtn.classList.add("active");
+  inactiveBtn.classList.remove("active");
 }
 
 function displayMovies() {
@@ -76,7 +76,6 @@ function displaySeries() {
   });
 
   attachRemoveListeners("tv");
-  attachStatusChangeListeners();
 }
 
 function filterSeries(status) {
@@ -87,14 +86,13 @@ function filterSeries(status) {
   } else {
     grid.innerHTML = series.map(s => watchlistItemTemplate(s, "tv")).join("");
     attachRemoveListeners("tv");
-    attachStatusChangeListeners();
   }
 }
 
 function watchlistItemTemplate(item, type) {
   const title = item.title || item.name || item.id;
   const statusBadge = type === "tv" && item.status
-    ? `<span class="status-badge" style="background:${getStatusColor(item.status)}">${item.status.replace("_", " ")}</span>`
+    ? `<div class="watchlist-status-row"><span class="status-badge" style="background:${getStatusColor(item.status)}">${item.status.replace("_", " ")}</span></div>`
     : "";
 
   return `
@@ -105,7 +103,6 @@ function watchlistItemTemplate(item, type) {
         ${statusBadge}
         <div class="watchlist-buttons">
           <a href="./detail.html?id=${item.id}&type=${type}" class="btn-view-small">View</a>
-          ${type === "tv" ? `<select class="status-select" data-id="${item.id}"><option value="to_watch"${item.status==="to_watch"?" selected":""}>To Watch</option><option value="watching"${item.status==="watching"?" selected":""}>Watching</option><option value="watched"${item.status==="watched"?" selected":""}>Watched</option></select>` : ""}
           <button class="remove-btn btn-remove-icon" data-id="${item.id}" data-type="${type}" title="Remove">✕</button>
         </div>
       </div>
@@ -129,17 +126,6 @@ function attachRemoveListeners() {
       removeFromWatchlist(id, type);
       alertMessage("Removed from Watchlist");
       type === "movie" ? displayMovies() : displaySeries();
-    });
-  });
-}
-
-function attachStatusChangeListeners() {
-  document.querySelectorAll(".status-select").forEach(select => {
-    select.addEventListener("change", (e) => {
-      const id = parseInt(e.target.dataset.id);
-      updateSeriesStatus(id, e.target.value);
-      alertMessage(`Status: ${e.target.value.replace("_", " ")}`);
-      displaySeries();
     });
   });
 }

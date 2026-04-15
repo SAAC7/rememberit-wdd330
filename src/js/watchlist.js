@@ -37,6 +37,40 @@ export function getSeriesFromWatchlist() {
   return getWatchlist().filter(item => item.type === "tv");
 }
 
+const EPISODE_STATUS_KEY = "tv-episode-status";
+
+export function getEpisodeStatusMap() {
+  return JSON.parse(localStorage.getItem(EPISODE_STATUS_KEY)) || {};
+}
+
+export function saveEpisodeStatusMap(map) {
+  localStorage.setItem(EPISODE_STATUS_KEY, JSON.stringify(map));
+}
+
+export function isEpisodeWatched(tvId, seasonNumber, episodeNumber) {
+  const statusMap = getEpisodeStatusMap();
+  return !!statusMap[tvId]?.[seasonNumber]?.[episodeNumber];
+}
+
+export function toggleEpisodeWatched(tvId, seasonNumber, episodeNumber) {
+  const statusMap = getEpisodeStatusMap();
+  const showStatus = statusMap[tvId] || {};
+  const seasonStatus = showStatus[seasonNumber] || {};
+  const alreadyWatched = !!seasonStatus[episodeNumber];
+
+  if (alreadyWatched) {
+    delete seasonStatus[episodeNumber];
+  } else {
+    seasonStatus[episodeNumber] = true;
+  }
+
+  showStatus[seasonNumber] = seasonStatus;
+  statusMap[tvId] = showStatus;
+  saveEpisodeStatusMap(statusMap);
+
+  return !alreadyWatched;
+}
+
 // Estados para series: por_ver, viendo, vista
 export function updateSeriesStatus(id, status) {
   const list = getWatchlist();
