@@ -13,7 +13,7 @@ export async function initMovieDetails() {
 
   try {
     const media = type === "tv" ? await getTVById(id) : await getMovieById(id);
-    console.log(media);
+    // console.log(media);
     type === "tv" ? renderTVDetails(media) : renderMovieDetails(media);
   } catch (error) {
     console.error(error);
