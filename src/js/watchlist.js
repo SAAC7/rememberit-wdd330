@@ -36,3 +36,29 @@ export function getMoviesFromWatchlist() {
 export function getSeriesFromWatchlist() {
   return getWatchlist().filter(item => item.type === "tv");
 }
+
+// Estados para series: por_ver, viendo, vista
+export function updateSeriesStatus(id, status) {
+  const list = getWatchlist();
+  const item = list.find(i => i.id === id && i.type === "tv");
+  if (item) {
+    item.status = status;
+    saveWatchlist(list);
+  }
+}
+
+export function getSeriesByStatus(status) {
+  return getSeriesFromWatchlist().filter(item => item.status === status);
+}
+
+// Verificar si serie está completa (todas las temporadas vistas)
+export function checkSeriesCompletion(id, watchedSeasons) {
+  const list = getWatchlist();
+  const item = list.find(i => i.id === id && i.type === "tv");
+  if (item && item.number_of_seasons) {
+    const allWatched = watchedSeasons.length >= item.number_of_seasons;
+    if (allWatched) updateSeriesStatus(id, "watched");
+    return allWatched;
+  }
+  return false;
+}

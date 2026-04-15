@@ -1,13 +1,36 @@
-import { getPopularMovies, getPopularSeries } from "./api.js";
+import { getPopularMovies, getPopularSeries, searchMulti } from "./api.js";
 
-let currentPageMovies = 1;
-let currentPageSeries = 1;
-let totalPagesMovies = 1;
-let totalPagesSeries = 1;
+let currentPageMovies = 1, currentPageSeries = 1;
+let totalPagesMovies = 1, totalPagesSeries = 1;
+let currentQuery = null;
 
 export async function initMovieList() {
   renderTabs();
+  setupSearch();
   await loadMovies(1);
+}
+
+export async function search(query, page = 1) {
+  currentQuery = query.trim();
+  if (!currentQuery) {
+    const type = getSessionType();
+    type === "movies" ? loadMovies(1) : loadSeries(1);
+    return;
+  }
+  const data = await searchMulti(currentQuery, page);
+  renderMedia(data.results, data.results[0]?.media_type || "movie");
+  renderPagination("search", data.currentPage, data.totalPages);
+}
+
+function setupSearch() {
+  const input = document.querySelector("#search-input");
+  const btn = document.querySelector("#search-btn");
+  if (!input || !btn) return;
+
+  btn.addEventListener("click", () => search(input.value));
+  input.addEventListener("keypress", (e) => {
+    if (e.key === "Enter") search(input.value);
+  });
 }
 
 function renderTabs() {
@@ -90,20 +113,17 @@ async function loadSeries(page) {
 
 function renderMedia(items, type) {
   const container = document.querySelector("#movie-list");
-  
-  container.innerHTML = items.map(item => mediaCardTemplate(item, type)).join("");
-}
-
-function mediaCardTemplate(item, type) {
-  const title = type === "movie" ? item.title : item.name;
-  const postPath = item.poster_path;
-  
-  return `
-    <div class="movie-card" data-id="${item.id}" data-type="${type}">
-      <img src="https://image.tmdb.org/t/p/w300${postPath}" alt="${title}" />
-      <h3>${title}</h3>
-    </div>
-  `;
+  container.innerHTML = items.map(item => {
+    const itemType = item.media_type || type;
+    const title = itemType === "tv" ? item.name : item.title;
+    const postPath = item.poster_path;
+    return `
+      <div class="movie-card" data-id="${item.id}" data-type="${itemType}">
+        <img src="https://image.tmdb.org/t/p/w300${postPath}" alt="${title}" />
+        <h3>${title}</h3>
+      </div>
+    `;
+  }).join("");
 }
 
 function renderPagination(type, currentPage, totalPages) {

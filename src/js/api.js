@@ -58,3 +58,23 @@ export async function getTVById(id) {
 
   return await res.json();
 }
+
+// Búsqueda multi (películas y series)
+export async function searchMulti(query, page = 1) {
+  const res = await fetch(
+    `${BASE_URL}/search/multi?api_key=${API_KEY}&query=${encodeURIComponent(query)}&page=${page}`
+  );
+
+  if (!res.ok) throw new Error("Search error");
+
+  const data = await res.json();
+  const results = data.results.filter(item =>
+    item.media_type === "movie" || item.media_type === "tv"
+  );
+
+  return {
+    results,
+    totalPages: data.total_pages,
+    currentPage: data.page
+  };
+}
